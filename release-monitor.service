@@ -1,0 +1,14 @@
+[Unit]
+Description=Release Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/release-monitor
+ExecStart=/root/release-monitor/venv/bin/python /root/release-monitor/monitor.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
