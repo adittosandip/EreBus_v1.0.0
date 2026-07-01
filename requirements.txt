@@ -3,6 +3,7 @@ beautifulsoup4==4.15.0
 certifi==2026.6.17
 charset-normalizer==3.4.7
 cloudscraper==1.2.71
+feedparser==6.0.12
 greenlet==3.5.3
 h11==0.16.0
 httpcore==1.0.9
@@ -10,12 +11,14 @@ httpx==0.28.1
 idna==3.18
 lxml==6.1.1
 playwright==1.61.0
+playwright-stealth==2.0.3
 pyee==13.0.1
 pyparsing==3.3.2
 python-telegram-bot==22.8
 PyYAML==6.0.3
 requests==2.34.2
 requests-toolbelt==1.0.0
+sgmllib3k==1.0.0
 soupsieve==2.8.4
 typing_extensions==4.15.0
 urllib3==2.7.0
