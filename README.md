@@ -9,7 +9,7 @@ EreBus is a modular release monitoring system that monitors multiple game releas
 - FitGirl Repack
 - Scene.cat
 - Skidrow
-- Reddit RSS-voices38
+- Reddit RSS (voices38)
 - SRRDB
 - SQLite duplicate detection
 - Telegram notifications
@@ -33,14 +33,13 @@ Run the installer:
 bash install.sh
 ```
 
-If `config.yaml` is created:
+During installation, EreBus will ask for:
 
-1. Edit `config.yaml`
-2. Run the installer again:
+- Telegram Bot Token
+- Telegram Chat ID
+- Check Interval (optional)
 
-```bash
-bash install.sh
-```
+The installer will automatically create `config.yaml`, install dependencies, configure the systemd service, and start the monitor.
 
 ---
 
@@ -92,7 +91,7 @@ journalctl -u release-monitor -f
 
 ## Requirements
 
-- Debian 12 / Ubuntu
+- Debian 12 or Ubuntu
 - Python 3.11+
 - Internet connection
 
