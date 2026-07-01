@@ -1,3 +1,20 @@
+
+# ======================================================
+# EreBus Configuration Example
+#
+# This file is provided as a reference only.
+# During installation, install.sh automatically creates
+# config.yaml and asks for:
+#
+# - Telegram Bot Token
+# - Telegram Chat ID
+# - Check Interval
+#
+# Manual editing of this file is not required.
+# ======================================================
+
+
+
 telegram:
 
   token: "YOUR_BOT_TOKEN"
