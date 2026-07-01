@@ -1,5 +1,5 @@
 [Unit]
-Description=Release Monitor
+Description=EreBus Release Monitor
 After=network.target
 
 [Service]
