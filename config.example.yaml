@@ -1,0 +1,59 @@
+telegram:
+
+  token: "YOUR_BOT_TOKEN"
+
+  chat_id: "YOUR_CHAT_ID"
+
+
+
+settings:
+
+  interval: 300
+
+  timeout: 30
+
+  user_agent: "Mozilla/5.0"
+
+
+
+sites:
+
+
+
+  fitgirl:
+
+    enabled: true
+
+    url: "https://fitgirl-repacks.site/"
+
+
+
+  kaos:
+
+    enabled: true
+
+    url: "https://kaoskrew.org/viewforum.php?f=13"
+
+
+
+  scene:
+
+    enabled: true
+
+    url: "https://scene.cat/"
+
+
+
+  srrdb:
+
+    enabled: true
+
+    url: "https://www.srrdb.com/browse/order:date-desc/category:pc/1"
+
+
+
+  skidrow:
+
+    enabled: true
+
+    url: "https://www.skidrowreloaded.com/"
