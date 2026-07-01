@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/release-monitor
-ExecStart=/root/release-monitor/venv/bin/python /root/release-monitor/monitor.py
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__PROJECT_DIR__/venv/bin/python __PROJECT_DIR__/monitor.py
 Restart=always
 RestartSec=10
 
