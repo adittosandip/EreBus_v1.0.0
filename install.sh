@@ -126,24 +126,71 @@ mkdir -p data
 mkdir -p logs
 
 ########################################
-# Config
+# Configuration
 ########################################
+
+echo
+echo "[6/9] Checking configuration..."
 
 if [ ! -f config.yaml ]; then
 
-    cp config.example.yaml config.yaml
-
     echo
-    echo "[INFO] config.yaml has been created."
-    echo
-    echo "Please edit config.yaml and add your Telegram Bot Token and Chat ID."
-    echo
-    echo "Then run:"
-    echo
-    echo "bash install.sh"
+    echo "No configuration found."
     echo
 
-    exit 0
+    read -p "Telegram Bot Token: " BOT_TOKEN
+    read -p "Telegram Chat ID: " CHAT_ID
+    read -p "Check Interval (default 300): " INTERVAL
+
+    if [ -z "$INTERVAL" ]; then
+        INTERVAL=300
+    fi
+
+cat > config.yaml <<EOF
+telegram:
+
+  token: "$BOT_TOKEN"
+
+  chat_id: "$CHAT_ID"
+
+settings:
+
+  interval: $INTERVAL
+
+  timeout: 30
+
+  user_agent: "Mozilla/5.0"
+
+sites:
+
+  fitgirl:
+    enabled: true
+    url: "https://fitgirl-repacks.site/"
+
+  kaos:
+    enabled: true
+    url: "https://kaoskrew.org/viewforum.php?f=13"
+
+  scene:
+    enabled: true
+    url: "https://scene.cat/"
+
+  srrdb:
+    enabled: true
+    url: "https://www.srrdb.com/browse/order:date-desc/category:pc/1"
+
+  skidrow:
+    enabled: true
+    url: "https://www.skidrowreloaded.com/"
+
+  reddit:
+    enabled: true
+    rss: "https://rss.app/feeds/E8gQn63RJEIwh7To.xml"
+
+EOF
+
+    echo
+    echo "[OK] Configuration created successfully."
 
 fi
 
