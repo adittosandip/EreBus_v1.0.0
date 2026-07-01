@@ -46,10 +46,16 @@ bash install.sh
 
 ## Service Commands
 
-Check status:
+Start:
 
 ```bash
-systemctl status release-monitor
+systemctl start release-monitor
+```
+
+Stop:
+
+```bash
+systemctl stop release-monitor
 ```
 
 Restart:
@@ -58,7 +64,25 @@ Restart:
 systemctl restart release-monitor
 ```
 
-Logs:
+Enable at boot:
+
+```bash
+systemctl enable release-monitor
+```
+
+Disable:
+
+```bash
+systemctl disable release-monitor
+```
+
+Check status:
+
+```bash
+systemctl status release-monitor
+```
+
+View logs:
 
 ```bash
 journalctl -u release-monitor -f
