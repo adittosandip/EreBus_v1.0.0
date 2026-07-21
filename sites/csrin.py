@@ -34,6 +34,10 @@ class CSRIN(BaseSite):
             timeout=60000
         )
 
+        # Check if CS.RIN session has expired
+        if self.page.locator("a[href*='ucp.php?mode=login']").count() > 0:
+            raise RuntimeError("CS.RIN session expired")
+
         html = self.page.content()
 
         soup = BeautifulSoup(html, "lxml")
@@ -102,6 +106,10 @@ class CSRIN(BaseSite):
             wait_until="networkidle",
             timeout=60000
         )
+
+        # Check if CS.RIN session has expired
+        if self.page.locator("a[href*='ucp.php?mode=login']").count() > 0:
+            raise RuntimeError("CS.RIN session expired")
 
         html = self.page.content()
 

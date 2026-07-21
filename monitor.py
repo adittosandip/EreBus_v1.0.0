@@ -36,6 +36,25 @@ class ReleaseMonitor:
             print(e)
             print()
 
+            # Send Telegram notification if CS.RIN session expired
+            if "CS.RIN session expired" in str(e):
+
+                message = (
+                    "⚠️ <b>CS.RIN SESSION EXPIRED</b>\n\n"
+                    f"Source: <b>{site.NAME}</b>\n\n"
+                    "Your CS.RIN login session has expired.\n\n"
+                    "Please run <b>login.py</b> on your MacBook "
+                    "and upload the new <b>state.json</b>."
+                )
+
+                try:
+                    self.telegram.send(message)
+                    print("Telegram session-expired alert sent.\n")
+                except Exception as te:
+                    print("Telegram Error")
+                    print(te)
+                    print()
+
             traceback.print_exc()
             return
 
