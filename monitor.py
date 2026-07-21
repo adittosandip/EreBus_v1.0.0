@@ -70,7 +70,7 @@ class ReleaseMonitor:
             print(e)
             return
 
-        details["site"] = site.NAME
+        details["source"] = site.NAME
         details["link"] = link
 
         if not details.get("title"):
@@ -88,7 +88,10 @@ class ReleaseMonitor:
 
     def send(self, details):
 
-        message = f"🎮 <b>{details['title']}</b>\n\n"
+        message = (
+            f"🔥 <b>NEW GAMES FROM {details['source']} !!!</b>\n\n"
+            f"🎮 <b>{details['title']}</b>\n\n"
+        )
 
         if details.get("size") and details["size"] != "-":
             message += f"📦 <b>Size:</b> {details['size']}\n\n"

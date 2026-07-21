@@ -1,7 +1,6 @@
-from http.cookiejar import MozillaCookieJar
-
-import requests
+from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 from core.base import BaseSite
 
@@ -14,47 +13,29 @@ class CSRIN(BaseSite):
 
     def __init__(self):
 
-        self.session = requests.Session()
+        self.playwright = sync_playwright().start()
 
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://cs.rin.ru/forum/",
-            "Origin": "https://cs.rin.ru",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
-        })
+        self.browser = self.playwright.chromium.launch(
+            headless=True
+        )
 
-        jar = MozillaCookieJar("cookies/csrin.txt")
+        self.context = self.browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+        )
 
-        try:
-            jar.load(ignore_discard=True, ignore_expires=True)
-            self.session.cookies.update(jar)
-        except Exception as e:
-            print(f"Cookie load failed: {e}")
+        self.page = self.context.new_page()
 
     def latest(self):
 
-        response = self.session.get(
+        self.page.goto(
             self.URL,
-            timeout=30,
-            allow_redirects=True
+            wait_until="networkidle",
+            timeout=60000
         )
 
-        print("=" * 60)
-        print("CSRIN DEBUG")
-        print("=" * 60)
-        print("Status:", response.status_code)
-        print("URL:", response.url)
-        print("Cookies Sent:", self.session.cookies.get_dict())
-        print("Response:")
-        print(response.text[:500])
-        print("=" * 60)
+        html = self.page.content()
 
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, "lxml")
+        soup = BeautifulSoup(html, "lxml")
 
         releases = []
         seen = set()
@@ -88,25 +69,44 @@ class CSRIN(BaseSite):
             if href.startswith("./"):
                 href = href[2:]
 
+            url = f"https://cs.rin.ru/forum/{href}"
+
+            parts = urlsplit(url)
+
+            query = [
+                (k, v)
+                for k, v in parse_qsl(parts.query)
+                if k != "sid"
+            ]
+
+            clean_url = urlunsplit((
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query),
+                ""
+            ))
+
             releases.append({
-                "title": title,
-                "link": f"https://cs.rin.ru/forum/{href}"
+                "title": title.replace("[ Info ]", "").strip(),
+                "link": clean_url
             })
 
         return releases
 
     def details(self, url):
 
-        response = self.session.get(url, timeout=30)
+        self.page.goto(
+            url,
+            wait_until="networkidle",
+            timeout=60000
+        )
 
-        response.raise_for_status()
+        html = self.page.content()
 
-        soup = BeautifulSoup(response.text, "lxml")
+        soup = BeautifulSoup(html, "lxml")
 
         title = ""
-        subject = ""
-        posted = ""
-        image = ""
 
         topic = soup.select_one("h2.topic-title")
 
@@ -115,32 +115,25 @@ class CSRIN(BaseSite):
 
         if not title:
             page = soup.select_one("title")
+
             if page:
                 title = page.get_text(strip=True)
 
-        post_subject = soup.select_one("h3 a")
-
-        if post_subject:
-            subject = post_subject.get_text(" ", strip=True)
-
-        for dt in soup.select("dt"):
-            text = dt.get_text(" ", strip=True)
-            if "Posted" in text:
-                posted = text
-                break
-
-        size = "-"
-
-        if subject:
-            size = subject
-
-        if posted:
-            size += f" | {posted}"
+        title = (
+            title.replace("CS RIN - Steam Underground • View topic -", "")
+                 .replace("[ Info ]", "")
+                 .strip()
+        )
 
         return {
-            "site": self.NAME,
+            "site": "CS RIN",
             "title": title,
-            "link": url,
-            "image": image,
-            "size": size
+            "link": url.split("&sid=")[0],
+            "image": "",
+            "size": ""
         }
+
+    def close(self):
+        self.context.close()
+        self.browser.close()
+        self.playwright.stop()
