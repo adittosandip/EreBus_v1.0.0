@@ -24,4 +24,6 @@ config.yaml
 
 # macOS
 .DS_Store
-cookies/*.txt
+
+# Cookies
+cookies/

@@ -1,10 +1,18 @@
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+import getpass
+import paramiko
 
 COOKIES_DIR = Path("cookies")
 STATE_FILE = COOKIES_DIR / "state.json"
 
 COOKIES_DIR.mkdir(exist_ok=True)
+
+# ===== VPS Configuration =====
+VPS_HOST = "89.58.35.2"
+VPS_PORT = 22
+VPS_USER = "root"
+REMOTE_PATH = "/root/release-monitor/cookies/state.json"
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
@@ -25,38 +33,26 @@ with sync_playwright() as p:
 
     context.storage_state(path=str(STATE_FILE))
 
-import getpass
-import paramiko
+    print("\nUploading state.json to VPS...")
 
-# ===== VPS Configuration =====
-VPS_HOST = "89.58.35.2"
-VPS_PORT = 22
-VPS_USER = "root"
-REMOTE_PATH = "/root/release-monitor/cookies/state.json"
+    password = getpass.getpass("VPS Password: ")
 
-print("\nUploading state.json to VPS...")
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-password = getpass.getpass("VPS Password: ")
+    ssh.connect(
+        hostname=VPS_HOST,
+        port=VPS_PORT,
+        username=VPS_USER,
+        password=password,
+    )
 
-ssh = paramiko.SSHClient()
-ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    sftp = ssh.open_sftp()
+    sftp.put(str(STATE_FILE), REMOTE_PATH)
+    sftp.close()
+    ssh.close()
 
-ssh.connect(
-    hostname=VPS_HOST,
-    port=VPS_PORT,
-    username=VPS_USER,
-    password=password,
-)
-
-sftp = ssh.open_sftp()
-sftp.put(str(STATE_FILE), REMOTE_PATH)
-sftp.close()
-ssh.close()
-
-print("Upload completed successfully!")
-
-print("Upload completed successfully!")
-
+    print("Upload completed successfully!")
     print(f"\nLogin session saved successfully!")
     print(f"File: {STATE_FILE}")
 
