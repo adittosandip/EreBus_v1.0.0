@@ -8,12 +8,6 @@ STATE_FILE = COOKIES_DIR / "state.json"
 
 COOKIES_DIR.mkdir(exist_ok=True)
 
-# ===== VPS Configuration =====
-VPS_HOST = "89.58.35.2"
-VPS_PORT = 22
-VPS_USER = "root"
-REMOTE_PATH = "/root/release-monitor/cookies/state.json"
-
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
 
@@ -33,9 +27,33 @@ with sync_playwright() as p:
 
     context.storage_state(path=str(STATE_FILE))
 
-    print("\nUploading state.json to VPS...")
+    print("\nLogin session saved successfully!")
+    print(f"File: {STATE_FILE}")
+
+    print("\n========== VPS Upload ==========")
+
+    VPS_HOST = input("VPS IP/Host: ").strip()
+    while not VPS_HOST:
+        VPS_HOST = input("VPS IP/Host (required): ").strip()
+
+    VPS_PORT = input("VPS Port [22]: ").strip()
+    VPS_PORT = int(VPS_PORT) if VPS_PORT else 22
+
+    VPS_USER = input("VPS Username [root]: ").strip()
+    VPS_USER = VPS_USER if VPS_USER else "root"
+
+    REMOTE_PATH = input(
+        "Remote Path [/root/release-monitor/cookies/state.json]: "
+    ).strip()
+    REMOTE_PATH = (
+        REMOTE_PATH
+        if REMOTE_PATH
+        else "/root/release-monitor/cookies/state.json"
+    )
 
     password = getpass.getpass("VPS Password: ")
+
+    print("\nUploading state.json to VPS...")
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -52,8 +70,7 @@ with sync_playwright() as p:
     sftp.close()
     ssh.close()
 
-    print("Upload completed successfully!")
-    print(f"\nLogin session saved successfully!")
-    print(f"File: {STATE_FILE}")
+    print("\nUpload completed successfully!")
+    print(f"Uploaded to: {VPS_HOST}:{REMOTE_PATH}")
 
     browser.close()
