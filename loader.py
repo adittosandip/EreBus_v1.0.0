@@ -4,6 +4,8 @@ import pkgutil
 
 import sites
 
+from core.base import BaseSite
+
 
 def load_sites():
 
@@ -20,7 +22,11 @@ def load_sites():
             inspect.isclass
         ):
 
-            if cls.__module__ == module.__name__:
+            if (
+                cls.__module__ == module.__name__
+                and issubclass(cls, BaseSite)
+                and cls is not BaseSite
+            ):
 
                 loaded.append(cls())
 
