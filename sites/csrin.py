@@ -3,10 +3,10 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from pathlib import Path
 from datetime import datetime
-import json
 import logging
 
 from core.base import BaseSite
+from telegram import Telegram
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -21,9 +21,6 @@ class CSRIN(BaseSite):
     # Cookies/session configuration
     COOKIES_DIR = Path("cookies")
     STATE_FILE = COOKIES_DIR / "state.json"
-    
-    # Debug output directory
-    DEBUG_DIR = Path("debug_csrin")
 
     def __init__(self):
 
@@ -35,7 +32,6 @@ class CSRIN(BaseSite):
 
         # Create cookies directory if it doesn't exist
         self.COOKIES_DIR.mkdir(parents=True, exist_ok=True)
-        self.DEBUG_DIR.mkdir(parents=True, exist_ok=True)
 
         # Load cookies from state.json if it exists
         storage_state = None
@@ -55,6 +51,9 @@ class CSRIN(BaseSite):
         )
 
         self.page = self.context.new_page()
+        
+        # Initialize Telegram client for session expiration notifications
+        self.telegram = Telegram()
 
     def _print_debug_header(self) -> None:
         """
@@ -85,11 +84,11 @@ class CSRIN(BaseSite):
             title = self.page.title()
             html = self.page.content()
             
-            # Check for login form (indicates NOT logged in)
-            login_form_exists = self.page.locator("form[method='post'][action*='login']").count() > 0
-            
             # Check for logout link (indicates logged in)
-            logout_link_exists = self.page.locator("a[href*='logout'], a:has-text('Logout')").count() > 0
+            logout_link_exists = self.page.locator("a[href*='mode=logout']").count() > 0
+            
+            # Check for login link (indicates NOT logged in)
+            login_link_exists = self.page.locator("a[href*='mode=login']").count() > 0
             
             # Check for Cloudflare challenge
             cf_challenge = self.page.locator("cf-challenge").count() > 0 or \
@@ -112,8 +111,8 @@ class CSRIN(BaseSite):
                 "html_length": len(html),
                 "loaded_cookies": cookie_names,
                 "cookie_count": len(cookies),
-                "login_form_exists": login_form_exists,
                 "logout_link_exists": logout_link_exists,
+                "login_link_exists": login_link_exists,
                 "cloudflare_challenge_detected": cf_challenge,
             }
             
@@ -126,63 +125,36 @@ class CSRIN(BaseSite):
                 "timestamp": datetime.now().isoformat(),
             }
 
-    def _save_debug_artifacts(self, reason: str) -> None:
+    def _notify_session_expired(self) -> None:
         """
-        Save debug artifacts (screenshot, HTML, metadata) when session validation fails.
+        Send Telegram notification about session expiration.
         
-        Args:
-            reason: Description of why debug artifacts are being saved
+        Uses the existing Telegram class from telegram.py.
+        If notification fails, logs the error but does not raise.
         """
+        message = (
+            "⚠️ <b>CS.RIN SESSION EXPIRED</b>\n\n"
+            f"Source: <b>{self.NAME}</b>\n\n"
+            "Your CS.RIN login session has expired.\n\n"
+            "Please run <b>login.py</b> on your MacBook "
+            "and upload the new <b>state.json</b>."
+        )
+        
         try:
-            debug_info = self._get_debug_info()
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            
-            # Save screenshot
-            screenshot_path = self.DEBUG_DIR / f"screenshot_{timestamp}.png"
-            try:
-                self.page.screenshot(path=str(screenshot_path))
-                logger.info(f"Debug screenshot saved: {screenshot_path}")
-            except Exception as e:
-                logger.warning(f"Failed to save screenshot: {e}")
-            
-            # Save HTML
-            html_path = self.DEBUG_DIR / f"page_{timestamp}.html"
-            try:
-                with open(html_path, 'w', encoding='utf-8') as f:
-                    f.write(self.page.content())
-                logger.info(f"Debug HTML saved: {html_path}")
-            except Exception as e:
-                logger.warning(f"Failed to save HTML: {e}")
-            
-            # Save metadata
-            metadata_path = self.DEBUG_DIR / f"metadata_{timestamp}.json"
-            debug_info['reason'] = reason
-            try:
-                with open(metadata_path, 'w', encoding='utf-8') as f:
-                    json.dump(debug_info, f, indent=2, default=str)
-                logger.info(f"Debug metadata saved: {metadata_path}")
-            except Exception as e:
-                logger.warning(f"Failed to save metadata: {e}")
-            
-            # Log debug info to console
-            logger.info(f"=== SESSION VALIDATION DEBUG INFO ===")
-            logger.info(f"Reason: {reason}")
-            logger.info(f"URL: {debug_info.get('current_url', 'N/A')}")
-            logger.info(f"Title: {debug_info.get('page_title', 'N/A')}")
-            logger.info(f"Cookies loaded: {debug_info.get('cookie_count', 0)}")
-            logger.info(f"Cookie names: {debug_info.get('loaded_cookies', [])}")
-            logger.info(f"Login form detected: {debug_info.get('login_form_exists', False)}")
-            logger.info(f"Logout link detected: {debug_info.get('logout_link_exists', False)}")
-            logger.info(f"Cloudflare challenge: {debug_info.get('cloudflare_challenge_detected', False)}")
-            logger.info(f"HTML preview: {debug_info.get('html_preview', '')[:200]}...")
-            logger.info(f"=====================================")
-        
+            self.telegram.send(message)
         except Exception as e:
-            logger.error(f"Error saving debug artifacts: {e}")
+            logger.error(f"Failed to send session expiration notification: {e}")
 
     def _check_session_valid(self) -> None:
         """
         Validate that the user is logged into CS.RIN.
+        
+        On a valid CS.RIN page, a logged-in user will have:
+        - A logout link (a[href*='mode=logout'])
+        - No login page redirect
+        - Valid cookies
+        
+        If session is invalid, sends a Telegram notification before raising RuntimeError.
         
         Raises:
             RuntimeError: If session is invalid with detailed reason
@@ -196,67 +168,66 @@ class CSRIN(BaseSite):
             
             url = debug_info.get('current_url', '')
             title = debug_info.get('page_title', '')
-            login_form_exists = debug_info.get('login_form_exists', False)
             logout_link_exists = debug_info.get('logout_link_exists', False)
+            login_link_exists = debug_info.get('login_link_exists', False)
             cf_challenge = debug_info.get('cloudflare_challenge_detected', False)
             cookie_count = debug_info.get('cookie_count', 0)
             
             # Check 1: Cloudflare challenge
             if cf_challenge:
-                self._save_debug_artifacts("Cloudflare challenge detected")
+                self._notify_session_expired()
                 raise RuntimeError(
                     "CS.RIN session expired: Cloudflare challenge detected. "
                     "The forum is blocking automated access. "
                     "Please regenerate cookies by running login.py with a real browser."
                 )
             
-            # Check 2: Redirect to login page
+            # Check 2: Redirect to login page URL
             if "ucp.php?mode=login" in url.lower():
-                self._save_debug_artifacts("Redirected to login page")
+                self._notify_session_expired()
                 raise RuntimeError(
-                    "CS.RIN session expired: Redirected to login page. "
+                    "CS.RIN session expired: Redirected to login page (URL contains ucp.php?mode=login). "
                     "Cookies are invalid or expired. "
                     "Please regenerate cookies by running login.py."
                 )
             
             # Check 3: No cookies loaded at all
             if cookie_count == 0:
-                self._save_debug_artifacts("No cookies loaded")
+                self._notify_session_expired()
                 raise RuntimeError(
                     f"CS.RIN session expired: No cookies loaded from {self.STATE_FILE}. "
                     "File does not exist or is invalid. "
                     "Please run login.py to generate a new session."
                 )
             
-            # Check 4: Login form present without logout link (not logged in)
-            # The login form exists on every phpBB page, but if we're NOT logged in,
-            # we'll see it in a specific context and there will be NO logout link.
-            # If we ARE logged in, we'll have a logout link instead.
-            if login_form_exists and not logout_link_exists:
-                self._save_debug_artifacts("Login form present but no logout link - not authenticated")
+            # Check 4: MAIN CHECK - Logout link exists = logged in
+            # If logout link exists, user IS logged in - session is VALID
+            if logout_link_exists:
+                logger.debug("Session validation passed: Logout link detected (user is logged in)")
+                return
+            
+            # Check 5: If NO logout link but login link exists = NOT logged in
+            if login_link_exists and not logout_link_exists:
+                self._notify_session_expired()
                 raise RuntimeError(
                     "CS.RIN session expired: Not authenticated. "
-                    "Cookies were loaded but are invalid or expired. "
+                    "Cookies were loaded but are invalid or expired (page shows login link, no logout). "
                     "Please regenerate cookies by running login.py."
                 )
             
-            # Check 5: Generic fallback - neither login form nor logout link
-            # This shouldn't happen on a valid phpBB page, indicates structure changed
-            if not login_form_exists and not logout_link_exists:
-                logger.warning(
-                    "Warning: Neither login form nor logout link detected. "
-                    "Page structure may have changed. Continuing anyway."
-                )
-            
-            # If we got here, session appears valid
-            logger.debug("Session validation passed")
+            # Check 6: Fallback - neither logout nor login link visible
+            # This could mean page structure changed or user is in some intermediate state
+            logger.warning(
+                "Warning: Neither logout nor login link detected. "
+                "Page structure may have changed. Proceeding anyway."
+            )
         
         except RuntimeError:
             # Re-raise RuntimeError (our session errors)
             raise
         except Exception as e:
-            # Catch unexpected errors
-            self._save_debug_artifacts(f"Unexpected error during session check: {e}")
+            # Catch unexpected errors and send Telegram before raising
+            self._notify_session_expired()
             raise RuntimeError(f"CS.RIN session check failed: {e}")
 
     def latest(self):
@@ -277,28 +248,49 @@ class CSRIN(BaseSite):
         releases = []
         seen = set()
 
+        # Find all topic header rows (tr.row2 contains topic title in td>p.topictitle)
         for row in soup.select("tr.row2"):
 
-            topic = row.select_one("p.topictitle a:last-of-type")
-
+            # Debug: Print row structure for inspection
+            print(f"Processing row: {row.get('class')}")
+            
+            # Extract topic title from <p class="topictitle"><a>...</a></p>
+            topic = row.select_one("p.topictitle a")
+            
+            # Debug: If topic not found, try alternative selectors
             if topic is None:
-                continue
+                print("  -> 'p.topictitle a' not found, trying alternatives...")
+                # Try other common topic selectors
+                topic = row.select_one("a.topictitle")
+                if topic is None:
+                    topic = row.select_one("a[href*='viewtopic.php']")
+                if topic is None:
+                    print("  -> No topic link found in this row, skipping")
+                    continue
+                else:
+                    print(f"  -> Found topic with alternative selector")
 
             title = topic.get_text(" ", strip=True)
+            print(f"  -> Title: {title[:60]}")
 
             if title in seen:
+                print(f"  -> Duplicate, skipping")
                 continue
 
             seen.add(title)
 
+            # Find the next sibling row (tr.row1) which contains post details
             info = row.find_next_sibling("tr")
 
             if info is None:
+                print(f"  -> No info row found, skipping")
                 continue
 
-            post = info.select_one("b + a")
+            # In the info row, look for the "Post subject" link which links to the specific post
+            post = info.select_one("a[href*='viewtopic.php']")
 
             if post is None:
+                print(f"  -> No post link found in info row, skipping")
                 continue
 
             href = post.get("href", "")
@@ -328,7 +320,9 @@ class CSRIN(BaseSite):
                 "title": title.replace("[ Info ]", "").strip(),
                 "link": clean_url
             })
+            print(f"  -> Added to releases")
 
+        print(f"\nTotal releases found: {len(releases)}\n")
         return releases
 
     def details(self, url):
